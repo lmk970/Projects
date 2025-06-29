@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>종이없는 회의실 - 통합 QR</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h2>📄 문서 업로드 → 열람 + QR 생성</h2>
+    <form id="uploadForm">
+      <label for="fileInput">문서를 선택하세요:</label>
+      <input type="file" id="fileInput" required />
+      <button type="submit">🚀 업로드 및 변환</button>
+    </form>
+    <div id="result"></div>
+    <div id="qrcode"></div>
+    <div id="error"></div>
+  </div>
+
+  <script src="./kjua.min.js"></script>
+  <script type="module">
+    import { shortenUrl } from './api.js';
+
+    const extToApiMap = {
+      hwp: "hwp", hwpx: "hwp", doc: "word", docx: "word",
+      ppt: "ppt", pptx: "ppt", xls: "cell", xlsx: "cell",
+      txt: "txt", pdf: null
+    };
+
+    function generatePassword() {
+      return Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
+    async function hashSHA256(str) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(str);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      return [...new Uint8Array(hashBuffer)].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function addQrDownloadButton(qrDiv) {
+      const canvas = qrDiv.querySelector("canvas");
+      if (!canvas) return;
+      const btn = document.createElement("button");
+      btn.id = "downloadBtn";
+      btn.textContent = "QR코드 다운로드";
+      btn.onclick = () => {
+        const a = document.createElement("a");
+        a.download = "qr.png";
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+      };
+      qrDiv.appendChild(btn);
+    }
+
+    function addCopyButton(qrDiv, url) {
+      const btn = document.createElement("button");
+      btn.id = "copyBtn";
+      btn.textContent = "링크 복사";
+      btn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          alert("링크가 복사되었습니다.");
+        } catch {
+          alert("복사 실패. 수동 복사 바랍니다.");
+        }
+      };
+      qrDiv.appendChild(btn);
+    }
+
+    function renderResult(url, resultDiv, qrDiv, password) {
+      resultDiv.innerHTML = `
+        ✅ 문서 링크가 생성되었습니다:<br />
+        <button id="openBtn">문서 열기</button>
+        <div class="info">${url}</div>
+        <div class="info"><strong>비밀번호: ${password}</strong></div>
+      `;
+      document.getElementById("openBtn").onclick = () => {
+        window.open(url, "_blank");
+      };
+      const qr = kjua({ render: 'canvas', text: url, size: 160 });
+      qrDiv.innerHTML = "";
+      qrDiv.appendChild(qr);
+      addQrDownloadButton(qrDiv);
+      addCopyButton(qrDiv, url);
+    }
+
+    async function handleUpload(file, resultDiv, qrDiv, errorDiv) {
+      try {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const uploadRes = await fetch("http://210.95.181.17:8101/rest/upload_file", {
+          method: "POST", body: formData
+        });
+        const uploadJson = await uploadRes.json();
+        const filePath = uploadJson.upload_file_path;
+        if (!filePath) throw new Error("업로드 실패");
+
+        let finalUrl = "";
+        if (ext === "pdf") {
+          finalUrl = `http://210.95.181.17:8101/hdv/view/?file_path=${filePath}&ext_to=pdf`;
+        } else {
+          const api = extToApiMap[ext];
+          if (!api) throw new Error("지원하지 않는 확장자");
+          const convert = await fetch(`http://210.95.181.17:8101/${api}/doc2pdf?file_path=${filePath}&show_type=2&function=sync`);
+          const json = await convert.json();
+          const pdfPath = json.docsconverter?.file?.target_file;
+          if (!pdfPath) throw new Error("PDF 변환 실패");
+          finalUrl = `http://210.95.181.17:8101/hdv/view/?file_path=${pdfPath}&ext_to=pdf`;
+        }
+
+        const shortUrl = await shortenUrl(finalUrl);
+        const password = generatePassword();
+        const fullHash = await hashSHA256(password);
+        const hash10 = fullHash.slice(0, 10);
+        const protectedUrl = `${location.origin}/passcheck.html?url=${encodeURIComponent(shortUrl)}&hash=${hash10}`;
+        renderResult(protectedUrl, resultDiv, qrDiv, password);
+      } catch (err) {
+        console.error(err);
+        errorDiv.textContent = "❌ 오류: " + err.message;
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("uploadForm");
+      const resultDiv = document.getElementById("result");
+      const errorDiv = document.getElementById("error");
+      const qrDiv = document.getElementById("qrcode");
+
+      form.addEventListener("submit", async e => {
+        e.preventDefault();
+        resultDiv.innerHTML = "";
+        errorDiv.textContent = "";
+        qrDiv.innerHTML = "";
+        const file = document.getElementById("fileInput").files[0];
+        if (!file) {
+          errorDiv.textContent = "⚠️ 파일을 선택해주세요.";
+          return;
+        }
+        await handleUpload(file, resultDiv, qrDiv, errorDiv);
+      });
+    });
+  </script>
+</body>
+</html>

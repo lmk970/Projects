@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>문서 접근 인증</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom right, #f0f4f8, #dfe9f3);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+
+    .box {
+      background: white;
+      padding: 2rem 2.5rem;
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 1rem;
+      font-size: 1.4rem;
+      color: #333;
+    }
+
+    input[type="password"] {
+      padding: 0.8rem 1rem;
+      font-size: 1rem;
+      width: 100%;
+      margin-bottom: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 0.9rem;
+      background: #0078d4;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.25s ease;
+    }
+
+    button:hover {
+      background: #005fa3;
+    }
+
+    #error {
+      color: red;
+      margin-top: 0.8rem;
+      font-size: 0.95rem;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>🔒 비밀번호를 입력하세요</h2>
+    <input type="password" id="pw" placeholder="비밀번호 (4자리 숫자)" />
+    <button onclick="checkPassword()">확인</button>
+    <div id="error"></div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const targetUrl = params.get("url");
+    const expectedHash10 = params.get("hash");
+
+    async function hashSHA256(str) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(str);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      return [...new Uint8Array(hashBuffer)].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function checkPassword() {
+      const input = document.getElementById("pw").value;
+      if (input.trim().length === 0) {
+        document.getElementById("error").textContent = "비밀번호를 입력해주세요.";
+        return;
+      }
+
+      const hashed = await hashSHA256(input);
+      const trimmed = hashed.slice(0, 10);
+
+      if (trimmed === expectedHash10) {
+        window.location.href = decodeURIComponent(targetUrl);
+      } else {
+        document.getElementById("error").textContent = "비밀번호가 틀렸습니다.";
+      }
+    }
+  </script>
+</body>
+</html>
