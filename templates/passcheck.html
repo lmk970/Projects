@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>문서 인증</title>
   <style>
     :root {
       --bg: #f0f4f8;
       --fg: #ffffff;
-      --text: #222;
+      --text: #ffffff; /* 흰색 텍스트 적용 */
       --error: #d93025;
       --primary: #0078d4;
       --primary-hover: #005fa3;
@@ -17,21 +18,30 @@
       :root {
         --bg: #121212;
         --fg: #1e1e1e;
-        --text: #eee;
+        --text: #ffffff;
         --error: #ff6b6b;
         --primary: #3896ff;
         --primary-hover: #2a7de2;
       }
     }
 
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
       font-family: 'Segoe UI', sans-serif;
       background: var(--bg);
-      display: flex;
+      min-height: 100dvh;
+      display: block;
+      box-sizing: border-box;
+    }
+
+    main {
+      max-width: 360px;
+      margin: auto;
+      padding: 8vh 1.5rem;
+      display: block;
+      flex-direction: column;
       justify-content: center;
-      align-items: center;
-      height: 100vh;
     }
 
     .box {
@@ -39,16 +49,13 @@
       padding: 2rem;
       border-radius: 12px;
       box-shadow: 0 10px 24px rgba(0,0,0,0.1);
-      max-width: 360px;
-      width: 100%;
     }
 
     h2 {
-      margin-top: 0;
-      margin-bottom: 1rem;
+      margin: 0 0 1rem;
       font-size: 1.3rem;
-      color: var(--text);
       text-align: center;
+      color: var(--text);
     }
 
     form {
@@ -99,15 +106,17 @@
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>🔐 비밀번호를 입력하세요</h2>
-    <form method="POST" id="pwform" action="/view/{{ doc_id }}">
-      <input type="password" name="password" id="pw"
-             placeholder="4자리 숫자" inputmode="numeric" maxlength="4" required autofocus />
-      <button type="submit">문서 열기</button>
-      <div id="error">{{ error }}</div>
-    </form>
-  </div>
+  <main>
+    <div class="box">
+      <h2>🔐 비밀번호를 입력하세요</h2>
+      <form method="POST" id="pwform" action="/view/{{ doc_id }}">
+        <input type="password" name="password" id="pw"
+               placeholder="4자리 숫자" inputmode="numeric" maxlength="4" required autofocus />
+        <button type="submit">문서 열기</button>
+        <div id="error">{{ error }}</div>
+      </form>
+    </div>
+  </main>
 
   <script>
     const docId = "{{ doc_id }}";
@@ -115,21 +124,35 @@
     const pw = document.getElementById("pw");
     const errorDiv = document.getElementById("error");
 
-    // 자동 인증
+    // 🔁 뒤로가기 복귀 시 자동 인증 방지
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted) {
+        sessionStorage.removeItem("auth_" + docId);
+      }
+    });
+
+    // ✅ 자동 인증
     if (sessionStorage.getItem("auth_" + docId) === "ok") {
       form.submit();
     }
 
-    // 실패 시 애니메이션
+    // ❌ 실패 시 shake 애니메이션
     if (errorDiv.textContent.trim()) {
       form.classList.add("shake");
       pw.value = "";
       pw.focus();
     }
 
-    // 숫자만 입력 제한
+    // 숫자만 허용
     pw.addEventListener("input", () => {
       pw.value = pw.value.replace(/[^0-9]/g, "").slice(0, 4);
+    });
+
+    // 포커스 시 입력창 중앙으로 스크롤
+    pw.addEventListener("focus", () => {
+      setTimeout(() => {
+        pw.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
     });
   </script>
 </body>

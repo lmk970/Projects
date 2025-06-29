@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JPG 문서 뷰어</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f0f2f5;
+      font-family: sans-serif;
+    }
+
+    .viewer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .page {
+      height: 100vh;
+      width: auto;
+      object-fit: contain;
+      margin-bottom: 2rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      background: white;
+    }
+
+    .page-number {
+      margin: 0.5rem 0;
+      color: #888;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="viewer" id="viewer"></div>
+
+  <script>
+    // 📌 URL에서 short_id 추출
+    const pathParts = window.location.pathname.split('/');
+    const shortId = pathParts[pathParts.indexOf('doc') + 1];
+
+    // ✅ 페이지 정보 불러오기
+    fetch(`/doc/${shortId}/info`)
+      .then(res => res.json())
+      .then(data => {
+        const totalPages = data.page_count;
+        const filePath = data.file_path;
+        const baseUrl = "http://210.95.181.17:8101/hdv/page_img";
+        const viewer = document.getElementById("viewer");
+
+        for (let i = 1; i <= totalPages; i++) {
+          const pageNumber = document.createElement('div');
+          pageNumber.className = 'page-number';
+          pageNumber.textContent = `${i} 페이지`;
+
+          const img = document.createElement('img');
+          img.className = "page";
+          img.src = `${baseUrl}?file_path=${encodeURIComponent(filePath)}&page=${i}&ext_to=jpg&quality=100`;
+
+          viewer.appendChild(pageNumber);
+          viewer.appendChild(img);
+        }
+      })
+      .catch(err => {
+        alert("문서 정보를 불러오지 못했습니다.");
+        console.error(err);
+      });
+  </script>
+</body>
+</html>
