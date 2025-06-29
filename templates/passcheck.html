@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>문서 인증</title>
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --fg: #ffffff;
+      --text: #222;
+      --error: #d93025;
+      --primary: #0078d4;
+      --primary-hover: #005fa3;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121212;
+        --fg: #1e1e1e;
+        --text: #eee;
+        --error: #ff6b6b;
+        --primary: #3896ff;
+        --primary-hover: #2a7de2;
+      }
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .box {
+      background: var(--fg);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+      max-width: 360px;
+      width: 100%;
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+      font-size: 1.3rem;
+      color: var(--text);
+      text-align: center;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+    }
+
+    input[type="password"] {
+      font-size: 1.1rem;
+      padding: 0.8rem 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      outline: none;
+    }
+
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.9rem;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: var(--primary-hover);
+    }
+
+    #error {
+      color: var(--error);
+      margin-top: 1rem;
+      text-align: center;
+      min-height: 1.2em;
+    }
+
+    .shake {
+      animation: shake 0.3s ease;
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25%,75% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>🔐 비밀번호를 입력하세요</h2>
+    <form method="POST" id="pwform" action="/view/{{ doc_id }}">
+      <input type="password" name="password" id="pw"
+             placeholder="4자리 숫자" inputmode="numeric" maxlength="4" required autofocus />
+      <button type="submit">문서 열기</button>
+      <div id="error">{{ error }}</div>
+    </form>
+  </div>
+
+  <script>
+    const docId = "{{ doc_id }}";
+    const form = document.getElementById("pwform");
+    const pw = document.getElementById("pw");
+    const errorDiv = document.getElementById("error");
+
+    // 자동 인증
+    if (sessionStorage.getItem("auth_" + docId) === "ok") {
+      form.submit();
+    }
+
+    // 실패 시 애니메이션
+    if (errorDiv.textContent.trim()) {
+      form.classList.add("shake");
+      pw.value = "";
+      pw.focus();
+    }
+
+    // 숫자만 입력 제한
+    pw.addEventListener("input", () => {
+      pw.value = pw.value.replace(/[^0-9]/g, "").slice(0, 4);
+    });
+  </script>
+</body>
+</html>

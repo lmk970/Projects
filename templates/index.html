@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>종이없는 회의실 - 통합 QR</title>
+    <script src="/static/kjua.min.js"></script>
+    <style>
+        :root {
+            --bg: #f5f7fa;
+            --fg: #ffffff;
+            --text: #111;
+            --border: #ccc;
+            --primary: #0078d4;
+            --primary-hover: #005fa3;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #121212;
+                --fg: #1f1f1f;
+                --text: #eee;
+                --border: #444;
+                --primary: #3896ff;
+                --primary-hover: #2b7cd4;
+            }
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .box {
+            background: var(--fg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 440px;
+            text-align: center;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 1.4rem;
+        }
+
+        .file-label {
+            display: block;
+            border: 2px dashed var(--border);
+            padding: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 1rem;
+            background: var(--fg);
+            transition: background 0.2s ease;
+        }
+
+        .file-label:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        #filename {
+            font-weight: bold;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.2rem;
+            margin: 0.4rem 0.3rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .danger {
+            background: #d93a3a;
+        }
+
+        .danger:hover {
+            background: #b92f2f;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+
+        #qrcode {
+            margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        #info {
+            margin-top: 1rem;
+            font-size: 1rem;
+        }
+
+        #error {
+            color: red;
+            margin-top: 1rem;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            font-size: 0.85rem;
+            text-align: center;
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+            padding: 0.7rem 0;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="box">
+        <h2>📎문서 업로드 → QR 생성</h2>
+        <form id="uploadForm">
+            <label class="file-label">
+                📂 <span id="filename">파일을 선택하세요</span>
+                <input type="file" id="fileInput" name="file" required>
+            </label>
+            <button type="submit" class="btn">📤 업로드</button>
+            <button class="btn danger" id="resetBtn">🧼 초기화(캐시 삭제)</button>
+
+        </form>
+
+        <div id="info"></div>
+        <div id="qrcode"></div>
+
+        <div id="buttons" style="display:none;">
+            <button class="btn" id="openBtn">🔓 문서 열기</button>
+            <button class="btn" id="copyBtn">📋 링크 복사</button>
+            <button class="btn" id="saveQRBtn">⬇️ QR 저장</button>
+        </div>
+        <footer class="footer">
+            © All rights reserved.<br>
+            Powered by Hancom Document Viewer API<br>
+            For internal use only.
+        </footer>
+        <div id="error"></div>
+    </div>
+    <script>
+        let docUrl = "";
+        const form = document.getElementById("uploadForm");
+        const fileInput = document.getElementById("fileInput");
+        const filenameLabel = document.getElementById("filename");
+        const info = document.getElementById("info");
+        const error = document.getElementById("error");
+        const qrDiv = document.getElementById("qrcode");
+        const buttons = document.getElementById("buttons");
+
+        fileInput.addEventListener("change", () => {
+            filenameLabel.textContent = fileInput.files[0]?.name || "파일을 선택하세요";
+        });
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            info.textContent = "";
+            error.textContent = "";
+            qrDiv.innerHTML = "";
+            buttons.style.display = "none";
+
+            const file = fileInput.files[0];
+            if (!file) {
+                error.textContent = "❗ 파일을 선택하세요.";
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const res = await fetch("/upload", { method: "POST", body: formData });
+                if (!res.ok) throw new Error("서버 오류");
+
+                const data = await res.json();
+                docUrl = location.origin + data.short_url;
+
+                info.innerHTML = `🔐 비밀번호: <strong>${data.password}</strong>`;
+
+                const qr = kjua({
+                    render: "canvas",
+                    size: 220,
+                    text: docUrl
+                });
+                qr.id = "qr-canvas";
+                qrDiv.appendChild(qr);
+                buttons.style.display = "block";
+            } catch (err) {
+                error.textContent = "❌ 업로드 실패: " + err.message;
+            }
+        });
+
+        document.getElementById("openBtn").addEventListener("click", () => {
+            if (docUrl) window.open(docUrl, "_blank");
+        });
+
+        document.getElementById("copyBtn").addEventListener("click", async () => {
+            if (!docUrl) return;
+            try {
+                await navigator.clipboard.writeText(docUrl);
+                alert("✅ 링크가 복사되었습니다!");
+            } catch {
+                alert("❗ 복사 실패");
+            }
+        });
+
+        document.getElementById("saveQRBtn").addEventListener("click", () => {
+            const canvas = document.getElementById("qr-canvas");
+            if (canvas) {
+                const link = document.createElement("a");
+                link.download = "qr.png";
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+            }
+        });
+
+        document.getElementById("resetBtn").addEventListener("click", async () => {
+            if (!confirm("정말 모든 링크를 초기화하시겠습니까?")) return;
+            try {
+                const res = await fetch("/reset", { method: "POST" });
+                const result = await res.json();
+                if (result.success) {
+                    alert("✅ 링크가 초기화되었습니다.");
+                    location.reload();
+                }
+            } catch {
+                alert("❌ 초기화 실패");
+            }
+        });
+
+    </script>
+</body>
+
+</html>
