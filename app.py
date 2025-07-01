@@ -1,7 +1,5 @@
 from flask import Flask, render_template, request
-import os, json, hashlib, random, string
-import requests
-import urllib.parse
+import os, json, hashlib, random, string, requests, urllib.parse, uuid
 
 app = Flask(__name__)
 app.config['DATA_FILE'] = 'data.json'
@@ -41,7 +39,10 @@ def upload_to_hancom(file):
     url = f"{HANCOM_SERVER}/rest/upload_file"
     
     # 안전한 파일명으로 변환 (한컴 서버가 + 기호 등으로 문제 발생할 수 있음)
-    safe_filename = file.filename.replace("+", "_").replace(" ", "_")
+    ext = file.filename.rsplit('.', 1)[-1]           # 확장자 추출
+    short_uuid = uuid.uuid4().hex[:32].upper()        # 8자리 대문자 UUID
+    safe_filename = f"{short_uuid}.{ext}"     # 최종 파일명 생성
+
     files = {'file': (safe_filename, file.stream, file.mimetype)}
 
     try:
@@ -137,4 +138,4 @@ def reset():
     return {'success': True}
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=80, debug=True)

@@ -1,141 +1,11 @@
 <!DOCTYPE html>
 <html lang="ko">
-
 <head>
     <meta charset="UTF-8">
     <title>종이없는 회의실 - 통합 QR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="/static/kjua.min.js"></script>
-    <style>
-        :root {
-            --bg: #f5f7fa;
-            --fg: #ffffff;
-            --text: #111;
-            --border: #ccc;
-            --primary: #0078d4;
-            --primary-hover: #005fa3;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #121212;
-                --fg: #1f1f1f;
-                --text: #eee;
-                --border: #444;
-                --primary: #3896ff;
-                --primary-hover: #2b7cd4;
-            }
-        }
-
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            padding: 2rem;
-        }
-
-        img {
-            display: block;
-            width: 100%;
-            height: auto;
-            max-width: 100vw;
-            margin: 0 auto;
-        }
-
-        .box {
-            background: var(--fg);
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-            width: 100%;
-            max-width: 440px;
-            text-align: center;
-        }
-
-        h2 {
-            margin-top: 0;
-            font-size: 1.4rem;
-        }
-
-        .file-label {
-            display: block;
-            border: 2px dashed var(--border);
-            padding: 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-bottom: 1rem;
-            background: var(--fg);
-            transition: background 0.2s ease;
-        }
-
-        .file-label:hover {
-            background: rgba(0, 0, 0, 0.05);
-        }
-
-        #filename {
-            font-weight: bold;
-        }
-
-        input[type="file"] {
-            display: none;
-        }
-
-        .btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.8rem 1.2rem;
-            margin: 0.4rem 0.3rem;
-            border-radius: 6px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
-
-        .danger {
-            background: #d93a3a;
-        }
-
-        .danger:hover {
-            background: #b92f2f;
-        }
-
-        .btn:hover {
-            background: var(--primary-hover);
-        }
-
-        #qrcode {
-            margin-top: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        #info {
-            margin-top: 1rem;
-            font-size: 1rem;
-        }
-
-        #error {
-            color: red;
-            margin-top: 1rem;
-        }
-
-        .footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            font-size: 0.85rem;
-            text-align: center;
-            background: var(--bg);
-            border-top: 1px solid var(--border);
-            padding: 0.7rem 0;
-            opacity: 0.7;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
@@ -147,8 +17,7 @@
                 <input type="file" id="fileInput" name="file" required>
             </label>
             <button type="submit" class="btn">📤 업로드</button>
-            <button class="btn danger" id="resetBtn">🧼 초기화(캐시 삭제)</button>
-
+            <button class="btn danger" id="resetBtn">📜 이력 초기화</button>
         </form>
 
         <div id="info"></div>
@@ -159,37 +28,36 @@
             <button class="btn" id="copyBtn">📋 링크 복사</button>
             <button class="btn" id="saveQRBtn">⬇️ QR 저장</button>
         </div>
+
+        <div id="error" style="color: red; margin-top:10px;"></div>
+
         <footer class="footer">
             © All rights reserved.<br>
             Powered by Hancom Document Viewer API<br>
-            For internal use only.
+            For internal use only.<br>
+            이용문의 : 충청남도 정보화담당관 (☎3719)
         </footer>
-        <div id="error"></div>
     </div>
+
     <script>
         let docUrl = "";
-        const form = document.getElementById("uploadForm");
         const fileInput = document.getElementById("fileInput");
         const filenameLabel = document.getElementById("filename");
-        const info = document.getElementById("info");
-        const error = document.getElementById("error");
-        const qrDiv = document.getElementById("qrcode");
-        const buttons = document.getElementById("buttons");
 
         fileInput.addEventListener("change", () => {
             filenameLabel.textContent = fileInput.files[0]?.name || "파일을 선택하세요";
         });
 
-        form.addEventListener("submit", async (e) => {
+        document.getElementById("uploadForm").addEventListener("submit", async (e) => {
             e.preventDefault();
-            info.textContent = "";
-            error.textContent = "";
-            qrDiv.innerHTML = "";
-            buttons.style.display = "none";
+            document.getElementById("info").textContent = "";
+            document.getElementById("error").textContent = "";
+            document.getElementById("qrcode").innerHTML = "";
+            document.getElementById("buttons").style.display = "none";
 
             const file = fileInput.files[0];
             if (!file) {
-                error.textContent = "❗ 파일을 선택하세요.";
+                document.getElementById("error").textContent = "파일을 선택하세요.";
                 return;
             }
 
@@ -203,18 +71,14 @@
                 const data = await res.json();
                 docUrl = location.origin + data.short_url;
 
-                info.innerHTML = `🔐 비밀번호: <strong>${data.password}</strong>`;
+                document.getElementById("info").innerHTML = `🔐 비밀번호: <strong>${data.password}</strong>`;
 
-                const qr = kjua({
-                    render: "canvas",
-                    size: 220,
-                    text: docUrl
-                });
+                const qr = kjua({ render: "canvas", size: 220, text: docUrl });
                 qr.id = "qr-canvas";
-                qrDiv.appendChild(qr);
-                buttons.style.display = "block";
+                document.getElementById("qrcode").appendChild(qr);
+                document.getElementById("buttons").style.display = "block";
             } catch (err) {
-                error.textContent = "❌ 업로드 실패: " + err.message;
+                document.getElementById("error").textContent = "업로드 실패: " + err.message;
             }
         });
 
@@ -222,15 +86,27 @@
             if (docUrl) window.open(docUrl, "_blank");
         });
 
-        document.getElementById("copyBtn").addEventListener("click", async () => {
+        document.getElementById("copyBtn").addEventListener("click", () => {
             if (!docUrl) return;
-            try {
-                await navigator.clipboard.writeText(docUrl);
-                alert("✅ 링크가 복사되었습니다!");
-            } catch {
-                alert("❗ 복사 실패");
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(docUrl)
+                    .then(() => alert("링크가 복사되었습니다!"))
+                    .catch(() => fallbackCopy(docUrl));
+            } else {
+                fallbackCopy(docUrl);
             }
         });
+
+        function fallbackCopy(text) {
+            const input = document.createElement("input");
+            input.value = text;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand("copy");
+            document.body.removeChild(input);
+            alert("링크가 복사되었습니다!");
+        }
 
         document.getElementById("saveQRBtn").addEventListener("click", () => {
             const canvas = document.getElementById("qr-canvas");
@@ -243,20 +119,30 @@
         });
 
         document.getElementById("resetBtn").addEventListener("click", async () => {
-            if (!confirm("정말 모든 링크를 초기화하시겠습니까?")) return;
+            const confirmReset = confirm("정말 모든 생성 이력을 초기화하시겠습니까?");
+            if (!confirmReset) return;
+
+            const input = prompt("초기화를 위한 관리자 비밀번호를 입력하세요:");
+            if (!/^\d+$/.test(input)) {
+                alert("숫자만 입력 가능합니다.");
+                return;
+            }
+            if (input !== "1234") {
+                alert("비밀번호가 올바르지 않습니다.");
+                return;
+            }
+
             try {
                 const res = await fetch("/reset", { method: "POST" });
                 const result = await res.json();
                 if (result.success) {
-                    alert("✅ 링크가 초기화되었습니다.");
+                    alert("링크가 초기화되었습니다.");
                     location.reload();
                 }
             } catch {
-                alert("❌ 초기화 실패");
+                alert("오류가 발생했습니다.");
             }
         });
-
     </script>
 </body>
-
 </html>
