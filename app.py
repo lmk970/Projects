@@ -3,9 +3,15 @@ import os, json, hashlib, random, string, requests, urllib.parse, uuid
 
 app = Flask(__name__)
 app.config['DATA_FILE'] = 'data.json'
-HANCOM_SERVER = 'http://210.95.181.17:8101'  # 실제 문서뷰어 서버 주소
+HANCOM_SERVER = 'http://210.95.181.17:8101'  # 문서뷰어 서버 주소
 
-# --- 유틸리티 ---
+SUPPORTED_EXTENSIONS = {
+    'hwp', 'hwpx', 'doc', 'docx', 'ppt', 'pptx',
+    'xls', 'xlsx', 'pdf', 'txt', 'odt',
+    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg', 'html'
+}
+
+# --- 유틸리티 함수 ---
 
 def load_data():
     if os.path.exists(app.config['DATA_FILE']):
@@ -36,13 +42,10 @@ def get_file_hash(file):
     return hashlib.sha256(content).hexdigest()[:16]
 
 def upload_to_hancom(file):
+    ext = file.filename.rsplit('.', 1)[-1]
+    short_uuid = uuid.uuid4().hex[:32].upper()
+    safe_filename = f"{short_uuid}.{ext}"
     url = f"{HANCOM_SERVER}/rest/upload_file"
-    
-    # 안전한 파일명으로 변환 (한컴 서버가 + 기호 등으로 문제 발생할 수 있음)
-    ext = file.filename.rsplit('.', 1)[-1]           # 확장자 추출
-    short_uuid = uuid.uuid4().hex[:32].upper()        # 8자리 대문자 UUID
-    safe_filename = f"{short_uuid}.{ext}"     # 최종 파일명 생성
-
     files = {'file': (safe_filename, file.stream, file.mimetype)}
 
     try:
@@ -67,6 +70,10 @@ def upload():
     if not file:
         return 'No file uploaded', 400
 
+    ext = file.filename.rsplit('.', 1)[-1].lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        return f'{ext.upper()} 형식은 지원하지 않습니다.', 400
+
     filehash = get_file_hash(file)
     data = load_data()
 
@@ -83,10 +90,8 @@ def upload():
 
     password = generate_password()
     short_id = generate_id()
-
-    # 안전하게 URL 인코딩 처리
     encoded_path = urllib.parse.quote(hancom_path, safe='')
-    viewer_url = f"{HANCOM_SERVER}/hdv/view/?file_path={encoded_path}&ext_to=jpg&short_url=true"
+    viewer_url = f"{HANCOM_SERVER}/hdv/view/?file_path={encoded_path}&ext_to=jpg"
 
     data[short_id] = {
         'pw': password,
@@ -104,7 +109,8 @@ def upload():
 @app.route('/doc/<short_id>')
 def doc(short_id):
     data = load_data()
-    if short_id not in data:
+    entry = data.get(short_id)
+    if not entry:
         return '유효하지 않은 문서입니다.', 404
     return render_template('passcheck.html', doc_id=short_id, error='')
 

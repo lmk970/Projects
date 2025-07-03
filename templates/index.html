@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>종이없는 회의실 - 통합 QR</title>
+    <title>종이없는 회의실 - 파일 업로드</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="/static/kjua.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
@@ -18,6 +18,7 @@
             </label>
             <button type="submit" class="btn">📤 업로드</button>
             <button class="btn danger" id="resetBtn">📜 이력 초기화</button>
+            <progress id="uploadProgress" value="0" max="100" style="width: 100%; display:none;"></progress>
         </form>
 
         <div id="info"></div>
@@ -43,12 +44,27 @@
         let docUrl = "";
         const fileInput = document.getElementById("fileInput");
         const filenameLabel = document.getElementById("filename");
+        const progressBar = document.getElementById("uploadProgress");
+
+        const allowedExts = ['hwp', 'hwpx', 'doc', 'docx', 'ppt', 'pptx',
+                             'xls', 'xlsx', 'pdf', 'txt', 'odt',
+                             'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg', 'html'];
 
         fileInput.addEventListener("change", () => {
-            filenameLabel.textContent = fileInput.files[0]?.name || "파일을 선택하세요";
+            const filename = fileInput.files[0]?.name || "";
+            const ext = filename.split('.').pop().toLowerCase();
+
+            if (!allowedExts.includes(ext)) {
+                alert(`"${ext}" 형식은 지원하지 않습니다.`);
+                fileInput.value = "";
+                filenameLabel.textContent = "파일을 선택하세요";
+                return;
+            }
+
+            filenameLabel.textContent = filename;
         });
 
-        document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+        document.getElementById("uploadForm").addEventListener("submit", (e) => {
             e.preventDefault();
             document.getElementById("info").textContent = "";
             document.getElementById("error").textContent = "";
@@ -61,25 +77,50 @@
                 return;
             }
 
+            progressBar.value = 0;
+            progressBar.style.display = "block";
+
             const formData = new FormData();
             formData.append("file", file);
 
-            try {
-                const res = await fetch("/upload", { method: "POST", body: formData });
-                if (!res.ok) throw new Error("서버 오류");
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", "/upload");
 
-                const data = await res.json();
-                docUrl = location.origin + data.short_url;
+            xhr.upload.addEventListener("progress", (e) => {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    progressBar.value = percent;
+                }
+            });
 
-                document.getElementById("info").innerHTML = `🔐 비밀번호: <strong>${data.password}</strong>`;
+            xhr.onload = () => {
+                progressBar.style.display = "none";
 
-                const qr = kjua({ render: "canvas", size: 220, text: docUrl });
-                qr.id = "qr-canvas";
-                document.getElementById("qrcode").appendChild(qr);
-                document.getElementById("buttons").style.display = "block";
-            } catch (err) {
-                document.getElementById("error").textContent = "업로드 실패: " + err.message;
-            }
+                if (xhr.status !== 200) {
+                    document.getElementById("error").textContent = "업로드 실패: " + xhr.statusText;
+                    return;
+                }
+
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    docUrl = location.origin + data.short_url;
+
+                    document.getElementById("info").innerHTML = `🔐 비밀번호: <strong>${data.password}</strong>`;
+                    const qr = kjua({ render: "canvas", size: 220, text: docUrl });
+                    qr.id = "qr-canvas";
+                    document.getElementById("qrcode").appendChild(qr);
+                    document.getElementById("buttons").style.display = "block";
+                } catch {
+                    document.getElementById("error").textContent = "업로드 실패: 응답 오류";
+                }
+            };
+
+            xhr.onerror = () => {
+                progressBar.style.display = "none";
+                document.getElementById("error").textContent = "업로드 중 오류 발생.";
+            };
+
+            xhr.send(formData);
         });
 
         document.getElementById("openBtn").addEventListener("click", () => {
@@ -88,7 +129,6 @@
 
         document.getElementById("copyBtn").addEventListener("click", () => {
             if (!docUrl) return;
-
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(docUrl)
                     .then(() => alert("링크가 복사되었습니다!"))

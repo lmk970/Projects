@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>문서 인증</title>
+  <title>종이없는 회의실 - 인증</title>
   <style>
     :root {
       --bg: #f0f4f8;
       --fg: #ffffff;
-      --text: #ffffff; /* 흰색 텍스트 적용 */
+      --text-light: #333333;
+      --text-dark: #ffffff;
       --error: #d93025;
       --primary: #0078d4;
       --primary-hover: #005fa3;
@@ -25,7 +27,8 @@
       }
     }
 
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       font-family: 'Segoe UI', sans-serif;
@@ -48,7 +51,7 @@
       background: var(--fg);
       padding: 2rem;
       border-radius: 12px;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
     }
 
     h2 {
@@ -99,19 +102,31 @@
     }
 
     @keyframes shake {
-      0%,100% { transform: translateX(0); }
-      25%,75% { transform: translateX(-5px); }
-      50% { transform: translateX(5px); }
+
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      25%,
+      75% {
+        transform: translateX(-5px);
+      }
+
+      50% {
+        transform: translateX(5px);
+      }
     }
   </style>
 </head>
+
 <body>
   <main>
     <div class="box">
       <h2>🔐 비밀번호를 입력하세요</h2>
       <form method="POST" id="pwform" action="/view/{{ doc_id }}">
-        <input type="password" name="password" id="pw"
-               placeholder="4자리 숫자" inputmode="numeric" maxlength="4" required autofocus />
+        <input type="password" name="password" id="pw" placeholder="4자리 숫자" inputmode="numeric" maxlength="4" required
+          autofocus />
         <button type="submit">문서 열기</button>
         <div id="error">{{ error }}</div>
       </form>
@@ -156,4 +171,5 @@
     });
   </script>
 </body>
+
 </html>
