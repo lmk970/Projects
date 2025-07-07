@@ -139,9 +139,56 @@ def view(short_id):
 
 @app.route('/reset', methods=['POST'])
 def reset():
-    open(app.config['DATA_FILE'], 'w', encoding='utf-8').write('{}')
-    print("🧼 data.json 초기화 완료")
-    return {'success': True}
+    data = request.get_json()
+    pw = data.get('password', '')
+
+    # 안전하게 비교할 실제 관리자 비밀번호 해시값
+    ADMIN_HASH = hash_password("3702")  # 실제 비밀번호는 환경변수로 관리하면 더 안전함
+
+    if hash_password(pw) != ADMIN_HASH:
+        print("❌ 관리자 인증 실패")
+        return { 'success': False, 'message': '잘못된 관리자 비밀번호입니다.' }
+
+    # 👉 초기화 작업들 수행 (data.json, 캐시, 로그 삭제 등)
+    try:
+        open(app.config['DATA_FILE'], 'w', encoding='utf-8').write('{}')
+        print("🧼 data.json 초기화 완료")
+
+        requests.get(f"{HANCOM_SERVER}/host/delete/cache")
+        requests.get(f"{HANCOM_SERVER}/rest/delete/log")
+        print("🧹 캐시 및 로그 삭제 완료")
+
+        return { 'success': True }
+    except Exception as e:
+        print("❌ 초기화 오류:", e)
+        return { 'success': False, 'message': '초기화 중 오류 발생' }
+    
+@app.before_request
+def restrict_ip_access():
+    ip = request.remote_addr
+    path = request.path
+
+    # IP 제한이 필요한 경로만 설정
+    IP_RESTRICTED_PATHS = ['/upload']
+
+    if any(path.startswith(p) for p in IP_RESTRICTED_PATHS):
+        ALLOWED_IP_PREFIXES = ['108.']
+        if not any(ip.startswith(prefix) for prefix in ALLOWED_IP_PREFIXES):
+            print(f"🚫 접근 제한: {ip} → {path}")
+            abort(403)
+
+@app.route('/check-ip')
+def check_ip():
+    remote_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    print(f"접속 IP: {remote_ip}")
+
+    allowed_prefixes = ['108.']
+    is_internal = any(remote_ip.startswith(prefix) for prefix in allowed_prefixes)
+
+    return {'internal': is_internal}
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=True)
+
+

@@ -1,24 +1,71 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
-    <meta charset="UTF-8">
-    <title>종이없는 회의실 - 파일 업로드</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8" />
+    <title>종이없는 회의실 - 문서 업로드</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="/static/kjua.min.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css" />
+    <style>
+        #uploadForm {
+            display: none;
+        }
+
+        .access-block {
+            background-color: #fef3f2;
+            border: 2px solid #f87171;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+            box-shadow: 0 0 5px rgba(220, 38, 38, 0.2);
+        }
+
+        .access-block h3 {
+            color: #dc2626;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .access-block p {
+            font-size: 16px;
+            color: #b91c1c;
+            font-weight: 600;
+            line-height: 1.6;
+        }
+
+        .network-warning {
+            margin-top: 10px;
+            background-color: #fee2e2;
+            padding: 10px;
+            border-radius: 6px;
+            color: #dc2626;
+            font-size: 15px;
+            font-weight: bold;
+            border-left: 4px solid #f87171;
+        }
+
+        .suggestion {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #374151;
+        }
+    </style>
 </head>
 
 <body>
     <div class="box">
         <h2>📎 문서 업로드 → QR 생성</h2>
+
         <form id="uploadForm">
             <label class="file-label">
                 📂 <span id="filename">파일을 선택하세요</span>
-                <input type="file" id="fileInput" name="file" required>
+                <input type="file" id="fileInput" name="file" required />
             </label>
             <button type="submit" class="btn">📤 업로드</button>
             <button class="btn danger" id="resetBtn">📜 이력 초기화</button>
-            <progress id="uploadProgress" value="0" max="100" style="width: 100%; display:none;"></progress>
+            <progress id="uploadProgress" value="0" max="100" style="width: 100%; display: none;"></progress>
         </form>
 
         <div id="info"></div>
@@ -30,12 +77,12 @@
             <button class="btn" id="saveQRBtn">⬇️ QR 저장</button>
         </div>
 
-        <div id="error" style="color: red; margin-top:10px;"></div>
+        <div id="error" style="color: red; margin-top: 10px;"></div>
 
         <footer class="footer">
-            © All rights reserved.<br>
-            Powered by Hancom Document Viewer API<br>
-            For internal use only.<br>
+            © All rights reserved.<br />
+            Powered by Hancom Document Viewer API<br />
+            For internal use only.<br />
             이용문의 : 충청남도 정보화담당관 (☎3719)
         </footer>
     </div>
@@ -45,10 +92,7 @@
         const fileInput = document.getElementById("fileInput");
         const filenameLabel = document.getElementById("filename");
         const progressBar = document.getElementById("uploadProgress");
-
-        const allowedExts = ['hwp', 'hwpx', 'doc', 'docx', 'ppt', 'pptx',
-                             'xls', 'xlsx', 'pdf', 'txt', 'odt',
-                             'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg', 'html'];
+        const allowedExts = ['hwp', 'hwpx', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'pdf', 'txt', 'odt', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg', 'html'];
 
         fileInput.addEventListener("change", () => {
             const filename = fileInput.files[0]?.name || "";
@@ -82,7 +126,6 @@
 
             const formData = new FormData();
             formData.append("file", file);
-
             const xhr = new XMLHttpRequest();
             xhr.open("POST", "/upload");
 
@@ -95,7 +138,6 @@
 
             xhr.onload = () => {
                 progressBar.style.display = "none";
-
                 if (xhr.status !== 200) {
                     document.getElementById("error").textContent = "업로드 실패: " + xhr.statusText;
                     return;
@@ -158,31 +200,37 @@
             }
         });
 
-        document.getElementById("resetBtn").addEventListener("click", async () => {
-            const confirmReset = confirm("정말 모든 생성 이력을 초기화하시겠습니까?");
-            if (!confirmReset) return;
-
-            const input = prompt("초기화를 위한 관리자 비밀번호를 입력하세요:");
-            if (!/^\d+$/.test(input)) {
-                alert("숫자만 입력 가능합니다.");
-                return;
-            }
-            if (input !== "1234") {
-                alert("비밀번호가 올바르지 않습니다.");
-                return;
-            }
-
+        window.addEventListener("DOMContentLoaded", async () => {
             try {
-                const res = await fetch("/reset", { method: "POST" });
-                const result = await res.json();
-                if (result.success) {
-                    alert("링크가 초기화되었습니다.");
-                    location.reload();
+                const res = await fetch("/check-ip");
+                const data = await res.json();
+                const formEl = document.getElementById("uploadForm");
+
+                if (data.internal) {
+                    formEl.style.display = "block";  // 내부망이면 업로드 폼 보이게
+                } else {
+                    formEl.innerHTML = `
+          <div class="access-block">
+            <h3>🚫 접근 제한됨</h3>
+            <p>현재 이용 중인 네트워크에서는<br><strong>문서 업로드 기능을 사용할 수 없습니다.</strong></p>
+            <div class="network-warning">
+              📌 <span class="highlight">내부(행정)망에서만 문서 업로드 가능합니다.</span>
+            </div>
+            <div class="suggestion">
+              네트워크 환경을 변경한 후 다시 시도해주세요.
+            </div>
+          </div>
+        `;
+                    formEl.style.display = "block";
                 }
-            } catch {
-                alert("오류가 발생했습니다.");
+            } catch (e) {
+                console.error("IP 확인 실패:", e);
+                document.getElementById("uploadForm").style.display = "block";
             }
         });
+
+
     </script>
 </body>
+
 </html>
